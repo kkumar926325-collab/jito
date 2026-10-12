@@ -2,6 +2,7 @@
   "name": "Jito - 3D Brain Training",
   "short_name": "Jito",
   "description": "3D brain training game: memory, reflex, attention and logic.",
+  "id": "/jito/",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

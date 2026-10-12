@@ -1,5 +1,5 @@
 // Jito offline cache. Game update karo to CACHE ka number badal dena (v1 -> v2)
-const CACHE = 'jito-v1';
+const CACHE = 'jito-v2';
 const FILES = ['./', './index.html', './three.min.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 // Install: sab files phone me save karo
