@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#070b1f">
+<title>JITO - 3D Brain Training</title>
+<style>
+/* ================= BASE ================= */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#070b1f;color:#e8ecff;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.hidden{display:none!important}
+
+/* ================= HUD ================= */
+#hud{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;align-items:center;
+  padding:max(10px,env(safe-area-inset-top)) 12px 0}
+.hud-top{display:flex;gap:8px;width:100%;max-width:520px}
+.pill{flex:1;background:rgba(15,22,60,.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid rgba(120,150,255,.25);border-radius:14px;padding:6px 10px;display:flex;flex-direction:column;line-height:1.15}
+.pill small{font-size:9px;letter-spacing:.14em;color:#8ea2ff}
+.pill b{font-size:19px}
+#lives{color:#ff5d8f;letter-spacing:2px}
+.icon{pointer-events:auto;width:48px;border-radius:14px;border:1px solid rgba(120,150,255,.35);
+  background:rgba(15,22,60,.75);color:#fff;font-size:15px}
+#prompt{margin-top:12px;text-align:center;max-width:520px}
+#prompt b{display:block;font-size:15px;letter-spacing:.18em;color:#7dd3fc}
+#prompt span{font-size:13px;color:#cbd5ff}
+.g{color:#4ade80;font-weight:700}.r{color:#fb7185;font-weight:700}
+#bar{margin-top:8px;width:min(86%,360px);height:7px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}
+#barFill{display:block;height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#818cf8);transition:width .12s linear}
+#barFill.warn{background:linear-gradient(90deg,#fb7185,#f59e0b)}
+#toast{position:fixed;left:0;right:0;bottom:calc(12% + env(safe-area-inset-bottom));text-align:center;
+  font-weight:800;font-size:28px;letter-spacing:.05em;opacity:0;pointer-events:none;color:#fff;text-shadow:0 0 18px currentColor}
+#toast.show{animation:pop 1.1s ease forwards}
+#toast.good{color:#4ade80}#toast.bad{color:#fb7185}#toast.gold{color:#fbbf24}
+@keyframes pop{0%{opacity:0;transform:translateY(12px) scale(.8)}15%{opacity:1;transform:scale(1.06)}
+  70%{opacity:1}100%{opacity:0;transform:translateY(-12px)}}
+
+/* ================= SCREENS ================= */
+.screen{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:max(16px,env(safe-area-inset-top)) 18px max(16px,env(safe-area-inset-bottom))}
+.dim{background:rgba(5,8,25,.74);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#menu{justify-content:space-between;background:linear-gradient(180deg,rgba(7,11,31,.85) 0%,rgba(7,11,31,0) 32%,rgba(7,11,31,0) 58%,rgba(7,11,31,.9) 100%)}
+#menu .top{text-align:center;padding-top:14px}
+#menu .bottom{width:min(100%,400px)}
+.logo{font-size:68px;font-weight:900;letter-spacing:.14em;margin-right:-.14em;line-height:1;
+  background:linear-gradient(135deg,#67e8f9,#a78bfa,#f472b6);-webkit-background-clip:text;background-clip:text;
+  color:transparent;filter:drop-shadow(0 0 18px rgba(139,92,246,.6))}
+.tag{margin-top:8px;font-size:12px;letter-spacing:.38em;color:#93c5fd}
+.tag2{margin-top:6px;font-size:14px;color:#c4b5fd}
+.best{margin-top:12px;font-size:12px;letter-spacing:.2em;color:#94a3b8}.best b{color:#fbbf24;font-size:16px}
+.card{width:min(100%,380px);max-height:92vh;overflow:auto;background:linear-gradient(160deg,rgba(30,40,100,.88),rgba(15,20,55,.92));
+  border:1px solid rgba(130,160,255,.3);border-radius:24px;padding:22px 20px;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 40px rgba(99,102,241,.25)}
+.card h2{margin:0 0 6px;letter-spacing:.2em;font-size:22px}
+.card.left{text-align:left}.card.left p{font-size:14px;line-height:1.45;color:#d6dcff;margin:10px 0}
+.btn{display:block;width:100%;padding:15px;margin-top:12px;border-radius:16px;font-size:16px;font-weight:700;
+  letter-spacing:.08em;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18)}
+.btn.primary{border:0;background:linear-gradient(135deg,#06b6d4,#6366f1 60%,#a855f7);box-shadow:0 8px 28px rgba(99,102,241,.55)}
+.btn:active{transform:scale(.97)}
+.row{display:flex;gap:8px}
+.row .btn{flex:1;width:auto;padding:11px 4px;font-size:12px;margin-top:10px;letter-spacing:.04em}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:4px}
+.chip{padding:9px 13px;border-radius:99px;font-size:13px;font-weight:600;color:#cbd5ff;
+  background:rgba(15,22,60,.75);border:1px solid rgba(130,160,255,.3)}
+.chip.on{color:#fff;border-color:transparent;background:linear-gradient(135deg,#06b6d4,#6366f1)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 4px}
+.stats div{background:rgba(255,255,255,.06);border-radius:14px;padding:10px}
+.stats small{display:block;font-size:9px;letter-spacing:.14em;color:#8ea2ff}
+.stats b{font-size:22px}
+.newbest{color:#fbbf24;font-weight:800;letter-spacing:.2em;margin-top:6px}
+</style>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<!-- ============ HUD (game ke dauran) ============ -->
+<div id="hud" class="hidden">
+  <div class="hud-top">
+    <div class="pill"><small>SCORE</small><b id="score">0</b></div>
+    <div class="pill"><small>LEVEL</small><b id="level">1</b></div>
+    <div class="pill"><small>LIVES</small><b id="lives"></b></div>
+    <button class="icon" id="btnPause">&#10074;&#10074;</button>
+  </div>
+  <div id="prompt"></div>
+  <div id="bar"><i id="barFill"></i></div>
+</div>
+<div id="toast"></div>
+
+<!-- ============ LOADING / ERROR ============ -->
+<div id="boot" class="screen dim"><div class="card"><h2>JITO</h2><p id="bootMsg">Loading 3D engine...</p></div></div>
+
+<!-- ============ START MENU ============ -->
+<div id="menu" class="screen hidden">
+  <div class="top">
+    <div class="logo">JITO</div>
+    <div class="tag">3D BRAIN TRAINING</div>
+    <div class="tag2">दिमाग को तेज़ करो 🧠</div>
+    <div class="best">BEST · <b id="menuBest">0</b></div>
+  </div>
+  <div class="bottom">
+    <div class="chips" id="chips">
+      <button class="chip on" data-m="mix">🎲 Mix</button>
+      <button class="chip" data-m="memory">🧠 Memory</button>
+      <button class="chip" data-m="reaction">⚡ Reflex</button>
+      <button class="chip" data-m="odd">👁 Odd One</button>
+      <button class="chip" data-m="order">🔢 Order</button>
+    </div>
+    <button class="btn primary" id="btnPlay">▶ PLAY</button>
+    <div class="row">
+      <button class="btn" id="btnHow">❓ How to play</button>
+      <button class="btn t-sfx"></button>
+      <button class="btn t-music"></button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ HOW TO PLAY ============ -->
+<div id="how" class="screen dim hidden"><div class="card left">
+  <h2 style="text-align:center">HOW TO PLAY</h2>
+  <p>🧠 <b>Pattern Memory</b> - tiles ek ke baad ek chamkenge. Bilkul same order me tap karo.</p>
+  <p>⚡ <b>Quick Reflex</b> - <span class="g">GREEN</span> tile jaldi tap karo, <span class="r">RED</span> ko mat chhuo.</p>
+  <p>👁 <b>Odd One Out</b> - jo tile alag color ya shape ki hai use dhundo (3 baar).</p>
+  <p>🔢 <b>Number Order</b> - numbers ko 1 se N tak tap karo (kabhi kabhi ulta!).</p>
+  <p>❤ 3 lives. Har 4 round jeetne par level up. Galti na karo to score multiplier badhta hai.</p>
+  <button class="btn primary" id="btnHowBack">GOT IT</button>
+</div></div>
+
+<!-- ============ PAUSE ============ -->
+<div id="pause" class="screen dim hidden"><div class="card">
+  <h2>PAUSED</h2>
+  <button class="btn primary" id="btnResume">▶ RESUME</button>
+  <button class="btn" id="btnRestart">↻ RESTART</button>
+  <div class="row"><button class="btn t-sfx"></button><button class="btn t-music"></button></div>
+  <button class="btn" id="btnQuit">⌂ MAIN MENU</button>
+</div></div>
+
+<!-- ============ GAME OVER ============ -->
+<div id="over" class="screen dim hidden"><div class="card">
+  <h2>GAME OVER</h2>
+  <div id="newBest" class="newbest hidden">★ NEW BEST ★</div>
+  <div class="stats">
+    <div><small>SCORE</small><b id="oScore">0</b></div>
+    <div><small>BEST</small><b id="oBest">0</b></div>
+    <div><small>LEVEL</small><b id="oLevel">1</b></div>
+    <div><small>ROUNDS WON</small><b id="oWins">0</b></div>
+  </div>
+  <button class="btn primary" id="btnAgain">▶ PLAY AGAIN</button>
+  <button class="btn" id="btnMenu">⌂ MAIN MENU</button>
+</div></div>
+
+<script>
+/* =====================================================================
+   JITO - 3D Brain Training Game
+   Engine: Three.js (r128). Sab assets procedural hain (koi image/audio file nahi).
+   ===================================================================== */
+
+/* ---------- CONFIG: yahan se game customize karo ---------- */
+const CONFIG = {
+  lives: 3,                 // shuru me kitni lives
+  winsPerLevel: 4,          // kitne round jeetne par level up
+  sfxVolume: 0.5,           // sound effects ki volume (0 - 1)
+  musicVolume: 0.22,        // background music ki volume (0 - 1)
+  idleTile: 0x1b2250,       // tile ka default color
+  palette: [0xff4d6d,0xff9f1c,0xffd60a,0x7bff6b,0x2ee6a8,0x38bdf8,0x6366f1,0xc084fc,0xf472b6]
+};
+const THREE_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+
+/* ---------- Chhote helpers ---------- */
+const $ = id => document.getElementById(id);
+const randInt = n => Math.floor(Math.random() * n);
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=randInt(i+1); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+/* ---------- Three.js load: pehle local file, nahi mili to CDN ---------- */
+(function boot(){
+  function fail(msg){ $('bootMsg').innerHTML = msg; }
+  function load(src, ok, err){
+    const s = document.createElement('script');
+    s.src = src; s.onload = ok; s.onerror = err; document.head.appendChild(s);
+  }
+  function start(){ try{ main(); }catch(e){ fail('Error: '+e.message+'<br>(WebGL support check karo)'); console.error(e); } }
+  load('three.min.js', start, () => load(THREE_CDN, start, () =>
+    fail('Three.js load nahi hua.<br>Internet check karo ya <b>three.min.js</b> ko index.html ke saath download karo.')));
+})();
+
+function main(){
+
+/* =====================================================================
+   1) RENDERER, SCENE, CAMERA, LIGHTS
+   ===================================================================== */
+const renderer = new THREE.WebGLRenderer({canvas:$('c'), antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 1.75));   // mobile performance
+renderer.setClearColor(0x070b1f);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x070b1f);
+scene.fog = new THREE.Fog(0x070b1f, 20, 70);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+
+scene.add(new THREE.HemisphereLight(0x8899ff, 0x080820, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 0.8); sun.position.set(3,8,4); scene.add(sun);
+const pl1 = new THREE.PointLight(0x22d3ee, 1.2, 30); pl1.position.set(-6,4,3); scene.add(pl1);
+const pl2 = new THREE.PointLight(0xf472b6, 1.0, 30); pl2.position.set(6,3,-3); scene.add(pl2);
+
+/* Floor grid + board ka slab (platform) */
+const grid = new THREE.GridHelper(80, 60, 0x3b82f6, 0x1e293b);
+grid.position.y = -0.9; grid.material.transparent = true; grid.material.opacity = 0.35; scene.add(grid);
+const slab = new THREE.Mesh(new THREE.BoxGeometry(1,0.2,1),
+  new THREE.MeshStandardMaterial({color:0x0d1233, roughness:.6, metalness:.4, emissive:0x0a1030}));
+slab.position.y = -0.25; scene.add(slab);
+
+/* Background stars */
+(function(){
+  const n=600, p=new Float32Array(n*3);
+  for(let i=0;i<n;i++){
+    const r=30+Math.random()*50, th=Math.random()*Math.PI*2, ph=Math.acos(2*Math.random()-1);
+    p[i*3]=r*Math.sin(ph)*Math.cos(th); p[i*3+1]=Math.abs(r*Math.cos(ph))*0.8; p[i*3+2]=r*Math.sin(ph)*Math.sin(th);
+  }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p,3));
+  window._stars = new THREE.Points(g, new THREE.PointsMaterial({color:0xaabbff,size:0.5,transparent:true,opacity:.8,fog:false}));
+  scene.add(window._stars);
+})();
+
+/* Floating wireframe shapes (sirf decoration) */
+const floaters = [];
+(function(){
+  const geos=[new THREE.IcosahedronGeometry(1.2),new THREE.OctahedronGeometry(1.2),new THREE.TorusGeometry(1,0.3,8,20),
+              new THREE.BoxGeometry(1.5,1.5,1.5),new THREE.TetrahedronGeometry(1.4)];
+  const cols=[0x22d3ee,0xa78bfa,0xf472b6,0x4ade80,0xfbbf24];
+  for(let i=0;i<12;i++){
+    const m=new THREE.Mesh(geos[i%5], new THREE.MeshBasicMaterial({color:cols[i%5],wireframe:true,transparent:true,opacity:.35}));
+    m.position.set((Math.random()-.5)*44, 0, -8-Math.random()*22);
+    m.userData={y0:-1+Math.random()*10, rx:Math.random()*.6, ry:Math.random()*.6};
+    scene.add(m); floaters.push(m);
+  }
+})();
+
+/* =====================================================================
+   2) PARTICLES (burst effect)
+   ===================================================================== */
+const PN = 300;
+const pPos=new Float32Array(PN*3), pCol=new Float32Array(PN*3), pCol0=new Float32Array(PN*3),
+      pVel=new Float32Array(PN*3), pLife=new Float32Array(PN);
+let pIdx = 0;
+for(let i=0;i<PN;i++) pPos[i*3+1] = -100;
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos,3));
+pGeo.setAttribute('color', new THREE.BufferAttribute(pCol,3));
+const pts = new THREE.Points(pGeo, new THREE.PointsMaterial({size:0.2,vertexColors:true,transparent:true,
+  depthWrite:false,blending:THREE.AdditiveBlending}));
+pts.frustumCulled = false; scene.add(pts);
+
+function burst(pos, color, n){
+  n = n || 20;
+  const c = new THREE.Color(color);
+  for(let k=0;k<n;k++){
+    const i = pIdx; pIdx = (pIdx+1)%PN;
+    pPos[i*3]=pos.x; pPos[i*3+1]=pos.y+0.3; pPos[i*3+2]=pos.z;
+    const a=Math.random()*Math.PI*2, sp=1.5+Math.random()*3;
+    pVel[i*3]=Math.cos(a)*sp; pVel[i*3+1]=2+Math.random()*3; pVel[i*3+2]=Math.sin(a)*sp;
+    pCol0[i*3]=c.r*1.3; pCol0[i*3+1]=c.g*1.3; pCol0[i*3+2]=c.b*1.3;
+    pLife[i]=1;
+  }
+}
+function updateParticles(dt){
+  let any=false;
+  for(let i=0;i<PN;i++){
+    if(pLife[i]<=0) continue;
+    any=true;
+    pLife[i]-=dt*1.3;
+    if(pLife[i]<=0){ pPos[i*3+1]=-100; pCol[i*3]=pCol[i*3+1]=pCol[i*3+2]=0; continue; }
+    pVel[i*3+1]-=9*dt;
+    pPos[i*3]+=pVel[i*3]*dt; pPos[i*3+1]+=pVel[i*3+1]*dt; pPos[i*3+2]+=pVel[i*3+2]*dt;
+    const l=pLife[i];
+    pCol[i*3]=pCol0[i*3]*l; pCol[i*3+1]=pCol0[i*3+1]*l; pCol[i*3+2]=pCol0[i*3+2]*l;
+  }
+  if(any){ pGeo.attributes.position.needsUpdate=true; pGeo.attributes.color.needsUpdate=true; }
+}
+
+/* =====================================================================
+   3) GAME STATE + SAVE DATA
+   ===================================================================== */
+let state = 'boot';            // boot | menu | playing | paused | over
+let score=0, level=1, wins=0, lives=CONFIG.lives, combo=0, roundNo=0;
+let R = null;                  // current round ka data
+let selectedMode = 'mix';
+const TYPES = ['memory','reaction','odd','order'];
+const save = {sfx:true, music:true, best:0, mode:'mix'};
+try{ Object.assign(save, JSON.parse(localStorage.getItem('jito_save')||'{}')); }catch(e){}
+function persist(){ try{ localStorage.setItem('jito_save', JSON.stringify(save)); }catch(e){} }
+selectedMode = save.mode || 'mix';
+
+/* =====================================================================
+   4) AUDIO (WebAudio - sab sounds code se bante hain)
+   ===================================================================== */
+let actx=null, master=null, sfxGain=null, musicGain=null, musicTimer=null, musicStep=0;
+function audioInit(){
+  if(actx){ if(actx.state==='suspended') actx.resume(); return; }
+  try{
+    actx = new (window.AudioContext||window.webkitAudioContext)();
+    master = actx.createGain(); master.gain.value = 0.9; master.connect(actx.destination);
+    sfxGain = actx.createGain(); sfxGain.gain.value = save.sfx ? CONFIG.sfxVolume : 0; sfxGain.connect(master);
+    musicGain = actx.createGain(); musicGain.gain.value = save.music ? CONFIG.musicVolume : 0; musicGain.connect(master);
+  }catch(e){ actx=null; }
+}
+/* ek note bajao: freq, duration, wave type, volume, delay, destination, slide-to freq */
+function tone(freq, dur, type, vol, when, dest, slideTo){
+  if(!actx) return;
+  const t0 = actx.currentTime + (when||0);
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type||'sine'; o.frequency.setValueAtTime(freq, t0);
+  if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0+dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol||0.4, t0+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  o.connect(g); g.connect(dest||sfxGain);
+  o.start(t0); o.stop(t0+dur+0.05);
+}
+const NOTE = [261.63,293.66,329.63,392.0,440.0,523.25,587.33,659.25,783.99]; // pentatonic scale
+const sfx = {
+  tile(i){ tone(NOTE[i%NOTE.length], 0.28, 'triangle', 0.45); },
+  good(){ tone(660,0.12,'sine',0.4); tone(880,0.16,'sine',0.4,0.09); },
+  bad(){ tone(180,0.3,'sawtooth',0.3,0,null,90); },
+  win(){ [523,659,784,1046].forEach((f,i)=>tone(f,0.18,'triangle',0.4,i*0.09)); },
+  level(){ [392,523,659,784,1046].forEach((f,i)=>tone(f,0.2,'square',0.22,i*0.08)); },
+  over(){ [440,370,311,262].forEach((f,i)=>tone(f,0.3,'sawtooth',0.28,i*0.18)); }
+};
+/* Background music: A minor/F/C/G chords par soft arpeggio (procedural loop) */
+const PROG = [{root:45,tri:[0,3,7]},{root:41,tri:[0,4,7]},{root:48,tri:[0,4,7]},{root:43,tri:[0,4,7]}];
+const mtof = m => 440*Math.pow(2,(m-69)/12);
+function musicTick(){
+  if(!actx || !save.music) return;
+  const ch = PROG[Math.floor(musicStep/8)%PROG.length], s = musicStep%8;
+  if(s===0) tone(mtof(ch.root), 0.9, 'sine', 0.5, 0, musicGain);                       // bass
+  const pat=[0,1,2,1,0,2,1,2];
+  tone(mtof(ch.root+24+ch.tri[pat[s]]), 0.25, 'triangle', 0.28, 0, musicGain);        // arpeggio
+  if(s===4) tone(mtof(ch.root+12+ch.tri[2]), 0.5, 'sine', 0.2, 0, musicGain);         // pad
+  musicStep++;
+}
+function startMusic(){ if(!actx || musicTimer || !save.music) return; musicTimer = setInterval(musicTick, 260); }
+function stopMusic(){ clearInterval(musicTimer); musicTimer=null; }
+
+/* =====================================================================
+   5) 3D BOARD: tiles banana, hatana, animate karna
+   ===================================================================== */
+const TILE=1.12, CELL=1.3;
+const TILE_GEO = new THREE.BoxGeometry(TILE, 0.3, TILE);
+const SHAPES = [new THREE.SphereGeometry(0.36,24,16), new THREE.ConeGeometry(0.36,0.8,24),
+  new THREE.TorusGeometry(0.28,0.1,12,24), new THREE.OctahedronGeometry(0.42), new THREE.BoxGeometry(0.55,0.55,0.55),
+  new THREE.CylinderGeometry(0.3,0.3,0.6,20), new THREE.TetrahedronGeometry(0.45), new THREE.DodecahedronGeometry(0.4)];
+const tileGroup = new THREE.Group(); scene.add(tileGroup);
+let tiles = [], boardW=4, boardH=4;
+
+function applyColor(t, hex){ t.color.set(hex); t.mat.color.copy(t.color); t.mat.emissive.copy(t.color); }
+function setTileColor(t, hex){ t.baseHex = hex; applyColor(t, hex); }          // permanent color
+function flashTile(t, dur, inten){ t.gT = inten||1.4; t.flash = dur||0.35; t.pulse = 1; } // chamak
+function tint(t, hex, dur){ applyColor(t, hex); t.rev = dur; flashTile(t, dur, 1.6); }    // temporary color
+
+function makeTile(x, z, id, delay){
+  const mat = new THREE.MeshStandardMaterial({color:CONFIG.idleTile, emissive:CONFIG.idleTile,
+    emissiveIntensity:0.15, roughness:0.35, metalness:0.25});
+  const mesh = new THREE.Mesh(TILE_GEO, mat);
+  mesh.position.set(x, -0.8, z); mesh.scale.setScalar(0.001);
+  const t = {id, mesh, mat, s:0.001, sT:1, glow:0.15, gT:0.15, idle:0.15, yT:0, pulse:0, flash:0, rev:0,
+             delay, value:null, done:false, shapeMesh:null, numMesh:null,
+             color:new THREE.Color(CONFIG.idleTile), baseHex:CONFIG.idleTile};
+  mesh.userData.tile = t;
+  tileGroup.add(mesh); tiles.push(t);
+  return t;
+}
+function clearBoard(){
+  for(const t of tiles){
+    tileGroup.remove(t.mesh); t.mat.dispose();
+    if(t.shapeMesh) t.shapeMesh.material.dispose();
+    if(t.numMesh){ t.numMesh.material.map.dispose(); t.numMesh.material.dispose(); t.numMesh.geometry.dispose(); }
+  }
+  tiles = [];
+}
+/* cols x rows ka board; count diya to random positions me utne hi tiles */
+function buildBoard(cols, rows, count){
+  clearBoard();
+  const pos=[];
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) pos.push([(c-(cols-1)/2)*CELL, (r-(rows-1)/2)*CELL]);
+  if(count && count<pos.length){ shuffle(pos); pos.length=count; }
+  boardW = cols*CELL; boardH = rows*CELL;
+  pos.forEach((p,i)=>makeTile(p[0], p[1], i, 0.05+0.05*i));
+  slab.scale.set(boardW+0.5, 1, boardH+0.5);
+  fitCamera();
+}
+/* Tile ke upar 3D shape lagao (Odd One Out ke liye) */
+function attachShape(t, shapeIdx, hex){
+  if(t.shapeMesh){ t.mesh.remove(t.shapeMesh); t.shapeMesh.material.dispose(); }
+  const m = new THREE.Mesh(SHAPES[shapeIdx], new THREE.MeshStandardMaterial({color:hex, emissive:hex,
+    emissiveIntensity:0.35, roughness:0.3, metalness:0.3}));
+  m.position.y = 0.55; m.rotation.x = 0.4;
+  t.mesh.add(m); t.shapeMesh = m;
+}
+/* Tile ke upar number likho (canvas texture se) */
+function attachNumber(t, n){
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  const g = cv.getContext('2d');
+  g.fillStyle='#fff'; g.font='bold 78px system-ui,Arial'; g.textAlign='center'; g.textBaseline='middle';
+  g.shadowColor='rgba(0,0,0,.5)'; g.shadowBlur=8; g.fillText(String(n), 64, 70);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(TILE*0.92, TILE*0.92),
+    new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv), transparent:true}));
+  m.rotation.x = -Math.PI/2; m.position.y = 0.17;
+  t.mesh.add(m); t.numMesh = m;
+}
+/* Har frame tiles ko animate karo */
+function updateTiles(dt){
+  const k = Math.min(1, dt*10);
+  for(const t of tiles){
+    if(t.delay>0){ t.delay-=dt; if(t.delay<=0) t.pulse=0.9; else continue; }
+    t.s += (t.sT - t.s)*k;
+    t.pulse = Math.max(0, t.pulse - dt*4);
+    const sc = Math.max(0.001, t.s*(1+t.pulse*0.15));
+    t.mesh.scale.set(sc,sc,sc);
+    if(t.flash>0){ t.flash-=dt; if(t.flash<=0) t.gT = t.idle; }
+    if(t.rev>0){ t.rev-=dt; if(t.rev<=0) applyColor(t, t.baseHex); }
+    t.glow += (t.gT - t.glow)*Math.min(1, dt*14);
+    t.mat.emissiveIntensity = t.glow;
+    t.mesh.position.y += (t.yT - t.mesh.position.y)*k;
+    if(t.shapeMesh) t.shapeMesh.rotation.y += dt*1.2;
+  }
+}
+
+/* =====================================================================
+   6) CAMERA (board ke hisaab se auto-fit, portrait/landscape dono)
+   ===================================================================== */
+const CAM_DIR = new THREE.Vector3(0,0.82,0.58).normalize();
+const camTarget = new THREE.Vector3(), camBase = new THREE.Vector3(0,30,24);
+let lookZ=2, lookZT=2, shake=0, time=0;
+function fitCamera(){
+  const aspect = innerWidth/innerHeight, vf = camera.fov*Math.PI/180;
+  const hf = 2*Math.atan(Math.tan(vf/2)*aspect);
+  const needW = (boardW+1.2)/2/Math.tan(hf/2);
+  const needH = (boardH*0.82+1)/2/Math.tan(vf/2)*1.3;
+  camTarget.copy(CAM_DIR).multiplyScalar(Math.max(needW, needH, 7));
+}
+function onResize(){
+  renderer.setSize(innerWidth, innerHeight, false);
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); fitCamera();
+}
+addEventListener('resize', onResize);
+addEventListener('orientationchange', ()=>setTimeout(onResize,250));
+onResize();
+function updateScene(dt){
+  window._stars.rotation.y += dt*0.01;
+  floaters.forEach((f,i)=>{ f.rotation.x+=dt*f.userData.rx; f.rotation.y+=dt*f.userData.ry;
+    f.position.y = f.userData.y0 + Math.sin(time*0.5+i)*0.6; });
+  const k = 1-Math.exp(-dt*3);
+  camBase.lerp(camTarget, k); lookZ += (lookZT-lookZ)*k;
+  shake = Math.max(0, shake-dt*2.2);
+  camera.position.set(camBase.x + Math.sin(time*0.3)*0.35 + (Math.random()-.5)*shake*0.5,
+                      camBase.y + Math.sin(time*0.4)*0.15 + (Math.random()-.5)*shake*0.5, camBase.z);
+  camera.lookAt(0, 0, lookZ);
+}
+
+/* =====================================================================
+   7) HUD HELPERS
+   ===================================================================== */
+function updateHUD(){
+  $('score').textContent = score; $('level').textContent = level;
+  $('lives').textContent = '♥'.repeat(Math.max(0,lives)) + '♡'.repeat(Math.max(0,CONFIG.lives-lives));
+}
+function setPrompt(title, sub){ $('prompt').innerHTML = '<b>'+title+'</b><span>'+(sub||'')+'</span>'; }
+function setBar(f, warn){
+  const el=$('barFill'); el.style.width = (Math.max(0,Math.min(1,f))*100).toFixed(1)+'%';
+  el.classList.toggle('warn', !!warn && f<0.28);
+}
+function toast(text, cls){
+  const el=$('toast'); el.textContent=text; el.className=''; void el.offsetWidth; el.className='show '+(cls||'');
+}
+/* combo multiplier ke saath score add karo */
+function addScore(n){
+  const add = Math.round(n*(1+Math.min(combo,10)*0.1)); score += add; updateHUD(); return add;
+}
+/* galat tap ka effect */
+function wrongFx(t){ sfx.bad(); shake=1; combo=0; if(t) tint(t, 0xff3b5c, 0.45); }
+
+/* =====================================================================
+   8) MINI-GAMES - har ek me init(), update(dt), tap(tile) hai
+   ===================================================================== */
+const NAMES = {memory:'PATTERN MEMORY', reaction:'QUICK REFLEX', odd:'ODD ONE OUT', order:'NUMBER ORDER'};
+const modes = {};
+
+/* ---------- 1) PATTERN MEMORY ---------- */
+modes.memory = {
+  init(){
+    buildBoard(3,3);
+    tiles.forEach((t,i)=>{ setTileColor(t, CONFIG.palette[i]); t.idle=0.18; t.gT=0.18; });
+    const len = Math.min(14, 2+level);                       // sequence ki length
+    R.seq=[]; let prev=-1;
+    for(let i=0;i<len;i++){ let n; do{ n=randInt(9); }while(n===prev && Math.random()<0.8); R.seq.push(n); prev=n; }
+    R.step = Math.max(0.34, 0.75-0.04*level);                // level badhne par speed badhti hai
+    R.in=0; R.lastShown=-1;
+    setPrompt(NAMES.memory, 'Watch the tiles carefully'); setBar(0);
+  },
+  update(dt){
+    R.t += dt;
+    if(R.phase==='intro'){ if(R.t>1.4){ R.phase='show'; R.t=0; } return; }
+    if(R.phase==='show'){
+      const k = Math.floor(R.t/R.step);
+      if(k>=R.seq.length){ R.phase='input'; R.t=0; setPrompt('YOUR TURN','Repeat the pattern'); setBar(0); return; }
+      if(k!==R.lastShown){ R.lastShown=k; flashTile(tiles[R.seq[k]], R.step*0.62, 1.6); sfx.tile(R.seq[k]); setBar(k/R.seq.length); }
+    }
+  },
+  tap(t){
+    if(R.phase!=='input') return;
+    if(t.id===R.seq[R.in]){
+      flashTile(t,0.3,1.6); sfx.tile(t.id); burst(t.mesh.position, t.color, 10);
+      R.in++; addScore(5); setBar(R.in/R.seq.length);
+      if(R.in>=R.seq.length) endRound(true, R.seq.length*10);
+    } else {
+      flashTile(tiles[R.seq[R.in]], 1.0, 1.8);               // sahi tile dikhao
+      wrongFx(t); endRound(false);
+    }
+  }
+};
+
+/* ---------- 2) QUICK REFLEX (green tap, red avoid) ---------- */
+modes.reaction = {
+  init(){
+    buildBoard(3,3);
+    tiles.forEach(t=>setTileColor(t, 0x1f2a5c));
+    R.total = Math.min(18, 8+level);                         // kitne flashes
+    R.maxMistakes = Math.max(3, Math.floor(R.total*0.3));    // itni galti par round fail
+    R.win = Math.max(0.5, 1.2-0.07*level);                   // tile kitni der dikhega
+    R.done=0; R.hits=0; R.mistakes=0; R.ev=null; R.gap=0.4; R.prev=-1;
+    modes.reaction.prompt(); setBar(0);
+  },
+  prompt(){
+    setPrompt(NAMES.reaction, 'Tap <span class="g">GREEN</span> · avoid <span class="r">RED</span> · mistakes '+R.mistakes+'/'+R.maxMistakes);
+  },
+  spawn(){
+    let i; do{ i=randInt(tiles.length); }while(i===R.prev);
+    R.prev=i;
+    const green = Math.random() > Math.min(0.45, 0.25+level*0.02);
+    const t = tiles[i];
+    R.ev = {tile:t, green, age:0, dur: green ? R.win : R.win*0.75};
+    applyColor(t, green?0x2bff88:0xff3b5c); t.gT=1.5; t.pulse=1;
+  },
+  finishEvent(){
+    const t=R.ev.tile; applyColor(t, t.baseHex); t.gT=t.idle; R.ev=null;
+    R.done++; setBar(R.done/R.total); R.gap = 0.25+Math.random()*0.35;
+    if(R.mistakes>=R.maxMistakes) endRound(false);
+    else if(R.done>=R.total) endRound(true, R.hits*5);
+  },
+  mistake(t, msg){ R.mistakes++; wrongFx(t); toast(msg,'bad'); modes.reaction.prompt(); },
+  update(dt){
+    R.t += dt;
+    if(R.phase==='intro'){ if(R.t>1.6){ R.phase='run'; R.t=0; } return; }
+    if(R.phase!=='run') return;
+    if(R.ev){
+      R.ev.age += dt;
+      if(R.ev.age >= R.ev.dur){
+        if(R.ev.green) modes.reaction.mistake(R.ev.tile, 'TOO SLOW!'); else addScore(5);
+        modes.reaction.finishEvent();
+      }
+    } else {
+      R.gap -= dt;
+      if(R.gap<=0) modes.reaction.spawn();
+    }
+  },
+  tap(t){
+    if(R.phase!=='run' || !R.ev) return;
+    if(t===R.ev.tile){
+      if(R.ev.green){
+        const rt=R.ev.age, bonus=Math.round(40*(1-rt/R.win));   // jitna tez, utna zyada score
+        addScore(10+Math.max(0,bonus)); R.hits++; sfx.good();
+        burst(t.mesh.position, 0x2bff88, 16); toast(Math.round(rt*1000)+' ms','good');
+        modes.reaction.finishEvent();
+      } else { modes.reaction.mistake(t, "DON'T TAP RED!"); modes.reaction.finishEvent(); }
+    } else {
+      modes.reaction.mistake(t, 'WRONG TILE!');
+      if(R.mistakes>=R.maxMistakes) endRound(false);
+    }
+  }
+};
+
+/* ---------- 3) ODD ONE OUT (alag shape / color dhundo) ---------- */
+modes.odd = {
+  init(){
+    const cols = Math.min(5, 3+Math.floor((level-1)/3));
+    buildBoard(cols, cols);
+    tiles.forEach(t=>setTileColor(t, CONFIG.idleTile));
+    R.finds=3; R.found=0; R.limit=Math.max(4.5, 10-level*0.5); R.left=R.limit;
+    modes.odd.newSet(); modes.odd.prompt(); setBar(1,true);
+  },
+  prompt(){ setPrompt(NAMES.odd, 'Find the different one · '+R.found+'/'+R.finds); },
+  newSet(){
+    const hue = Math.random();
+    const useShape = level>=3 && Math.random()<0.5;           // level 3+ par kabhi shape alag hoga
+    const diff = Math.max(0.035, 0.17-level*0.012);           // level badhne par color farak kam
+    const base = new THREE.Color().setHSL(hue, 0.8, 0.55);
+    const odd  = new THREE.Color().setHSL((hue + (Math.random()<.5?1:-1)*diff + 1)%1, 0.8, 0.55);
+    const sIdx = randInt(SHAPES.length), oddS = (sIdx+1+randInt(SHAPES.length-1))%SHAPES.length;
+    R.oddTile = tiles[randInt(tiles.length)];
+    tiles.forEach(t=>{
+      const isOdd = (t===R.oddTile);
+      attachShape(t, (useShape&&isOdd)?oddS:sIdx, (!useShape&&isOdd)?odd:base);
+      t.pulse = 0.5;
+    });
+  },
+  update(dt){
+    R.t += dt;
+    if(R.phase==='intro'){ if(R.t>1.2){ R.phase='run'; R.t=0; } return; }
+    if(R.phase!=='run') return;
+    R.left -= dt; setBar(R.left/R.limit, true);
+    if(R.left<=0){ toast('TIME UP!','bad'); flashTile(R.oddTile,1.5,2.0); wrongFx(null); endRound(false); }
+  },
+  tap(t){
+    if(R.phase!=='run') return;
+    if(t===R.oddTile){
+      R.found++; addScore(20+Math.round(R.left/R.limit*20)); sfx.good(); burst(t.mesh.position, 0x4ade80, 16);
+      if(R.found>=R.finds) endRound(true, 30);
+      else { R.left=Math.min(R.limit, R.left+1.5); modes.odd.newSet(); modes.odd.prompt(); }
+    } else { R.left -= 2; wrongFx(t); toast('-2s','bad'); }
+  }
+};
+
+/* ---------- 4) NUMBER ORDER (logic: 1->N ya N->1) ---------- */
+modes.order = {
+  init(){
+    const N = Math.min(16, Math.floor(3+level*1.5));
+    const g = N<=4?[2,2] : N<=6?[3,2] : N<=9?[3,3] : N<=12?[3,4] : [4,4];
+    buildBoard(g[0], g[1], N);
+    R.N=N; R.desc = (level>=3 && Math.random()<0.5);         // level 3+ par ulta order bhi aayega
+    R.next = R.desc ? N : 1; R.count=0;
+    const nums = shuffle([...Array(N).keys()].map(i=>i+1));
+    tiles.forEach((t,i)=>{ t.value=nums[i]; setTileColor(t, 0x243066); attachNumber(t, t.value); });
+    R.limit = N*1.4+4; R.left = R.limit;
+    setPrompt(R.desc?'NUMBER ORDER · BACKWARDS':NAMES.order, R.desc ? 'Tap '+N+' → 1' : 'Tap 1 → '+N);
+    setBar(1,true);
+  },
+  update(dt){
+    R.t += dt;
+    if(R.phase==='intro'){ if(R.t>1.2){ R.phase='run'; R.t=0; } return; }
+    if(R.phase!=='run') return;
+    R.left -= dt; setBar(R.left/R.limit, true);
+    if(R.left<=0){
+      const nt = tiles.find(t=>t.value===R.next); if(nt) flashTile(nt,1.5,2.0);
+      toast('TIME UP!','bad'); wrongFx(null); endRound(false);
+    }
+  },
+  tap(t){
+    if(R.phase!=='run' || t.done) return;
+    if(t.value===R.next){
+      t.done=true; setTileColor(t, 0x22c55e); t.idle=0.6; flashTile(t,0.3,1.6); t.yT=-0.14;
+      sfx.tile(R.count); burst(t.mesh.position, 0x22c55e, 10); addScore(10);
+      R.count++; R.next += R.desc ? -1 : 1;
+      if(R.count>=R.N) endRound(true, Math.round(R.left*5)+R.N*3);
+    } else { R.left -= 2.5; wrongFx(t); toast('-2.5s','bad'); }
+  }
+};
+
+/* =====================================================================
+   9) GAME FLOW: round start/end, pause, game over
+   ===================================================================== */
+function startRound(){
+  roundNo++;
+  const type = selectedMode==='mix' ? TYPES[(roundNo-1)%TYPES.length] : selectedMode;
+  R = {type, phase:'intro', t:0, wait:1.4};
+  modes[type].init();
+  updateHUD();
+}
+function endRound(ok, bonus){
+  if(!R || R.phase==='result') return;
+  R.phase='result'; R.t=0;
+  if(ok){
+    wins++; combo++;
+    const add = addScore(bonus||0);
+    const nl = 1+Math.floor(wins/CONFIG.winsPerLevel);
+    if(nl>level){ level=nl; sfx.level(); toast('LEVEL UP!  '+level,'gold'); }
+    else { sfx.win(); toast('PERFECT!  +'+add,'good'); }
+    R.wait = 1.3;
+  } else {
+    lives--; combo=0; toast(lives>0?'ROUND FAILED':'OUT OF LIVES','bad'); R.wait = 1.8;
+  }
+  updateHUD();
+}
+function startGame(){
+  audioInit(); startMusic();
+  score=0; level=1; wins=0; lives=CONFIG.lives; combo=0; roundNo=0;
+  state='playing'; lookZT=-0.4; setUI();
+  startRound();
+}
+function pauseGame(){ if(state!=='playing') return; state='paused'; stopMusic(); setUI(); }
+function resumeGame(){ if(state!=='paused') return; state='playing'; startMusic(); setUI(); }
+function gameOver(){
+  const isBest = score>save.best; if(isBest){ save.best=score; persist(); }
+  sfx.over();
+  $('oScore').textContent=score; $('oBest').textContent=save.best; $('oLevel').textContent=level; $('oWins').textContent=wins;
+  $('newBest').classList.toggle('hidden', !isBest);
+  state='over'; R=null; buildMenuBoard(); lookZT=1.0; setUI();
+}
+/* Menu ke peeche rangeen demo board */
+function buildMenuBoard(){
+  buildBoard(3,3);
+  tiles.forEach((t,i)=>{ setTileColor(t, CONFIG.palette[i]); t.idle=0.25; t.gT=0.25; });
+}
+function showMenu(){
+  state='menu'; R=null; stopMusic(); startMusic();
+  buildMenuBoard(); lookZT=2.0; $('menuBest').textContent=save.best; setUI();
+}
+
+/* =====================================================================
+   10) UI: screens, buttons, toggles
+   ===================================================================== */
+function setUI(){
+  const map = {menu:'menu', paused:'pause', over:'over'};
+  ['boot','menu','how','pause','over'].forEach(id=>$(id).classList.add('hidden'));
+  if(map[state]) $(map[state]).classList.remove('hidden');
+  $('hud').classList.toggle('hidden', !(state==='playing' || state==='paused'));
+  updateHUD(); refreshToggles();
+}
+function refreshToggles(){
+  document.querySelectorAll('.t-sfx').forEach(b=>b.textContent = (save.sfx?'🔊':'🔇')+' SFX');
+  document.querySelectorAll('.t-music').forEach(b=>b.textContent = (save.music?'🎵':'🔇')+' Music');
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on', c.dataset.m===selectedMode));
+}
+function toggleSfx(){
+  save.sfx=!save.sfx; persist(); audioInit();
+  if(sfxGain) sfxGain.gain.value = save.sfx ? CONFIG.sfxVolume : 0;
+  refreshToggles(); if(save.sfx) sfx.good();
+}
+function toggleMusic(){
+  save.music=!save.music; persist(); audioInit();
+  if(musicGain) musicGain.gain.value = save.music ? CONFIG.musicVolume : 0;
+  if(save.music){ if(state!=='paused') startMusic(); } else stopMusic();
+  refreshToggles();
+}
+$('btnPlay').onclick    = startGame;
+$('btnAgain').onclick   = startGame;
+$('btnRestart').onclick = startGame;
+$('btnMenu').onclick    = showMenu;
+$('btnQuit').onclick    = showMenu;
+$('btnPause').onclick   = pauseGame;
+$('btnResume').onclick  = resumeGame;
+$('btnHow').onclick     = ()=>$('how').classList.remove('hidden');
+$('btnHowBack').onclick = ()=>$('how').classList.add('hidden');
+document.querySelectorAll('.t-sfx').forEach(b=>b.onclick=toggleSfx);
+document.querySelectorAll('.t-music').forEach(b=>b.onclick=toggleMusic);
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+  selectedMode=c.dataset.m; save.mode=selectedMode; persist(); refreshToggles();
+});
+/* Browser audio ko pehle touch par unlock karna padta hai */
+addEventListener('pointerdown', ()=>{ audioInit(); if(state!=='paused') startMusic(); });
+addEventListener('contextmenu', e=>e.preventDefault());
+/* App background me gaya to auto-pause */
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) pauseGame(); });
+
+/* =====================================================================
+   11) TOUCH / TAP INPUT (raycasting se tile pakadna)
+   ===================================================================== */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+$('c').addEventListener('pointerdown', e=>{
+  e.preventDefault();
+  if(state!=='playing' || !R) return;
+  const rc = $('c').getBoundingClientRect();
+  ndc.x = ((e.clientX-rc.left)/rc.width)*2-1; ndc.y = -((e.clientY-rc.top)/rc.height)*2+1;
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObjects(tileGroup.children, true);
+  for(const h of hits){
+    let o=h.object; while(o && !o.userData.tile) o=o.parent;
+    if(o){ modes[R.type].tap(o.userData.tile); break; }
+  }
+}, {passive:false});
+
+/* =====================================================================
+   12) MAIN LOOP
+   ===================================================================== */
+let last = performance.now(), menuT = 0;
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.05, (now-last)/1000); last = now; time += dt;
+
+  if(state==='playing' && R){
+    if(R.phase==='result'){
+      R.t += dt;
+      if(R.t>=R.wait){ if(lives<=0) gameOver(); else startRound(); }
+    } else modes[R.type].update(dt);
+  }
+  /* menu / game-over me demo tiles randomly chamkein */
+  if(state==='menu' || state==='over'){
+    menuT -= dt;
+    if(menuT<=0 && tiles.length){ menuT = 0.5+Math.random()*0.5; flashTile(tiles[randInt(tiles.length)], 0.5, 1.5); }
+  }
+  updateTiles(dt); updateParticles(dt); updateScene(dt);
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(loop);
+showMenu();
+
+} // end main()
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("sw.js").catch(function (e) { console.log("SW error", e); });
+  });
+}
+</script>
+</body>
+</html>
